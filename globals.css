@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200;
+}
+
+/* Простая тема подсветки кода (аналог github-dark) без внешнего CSS-пакета */
+pre code.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+
+.hljs {
+  color: #c9d1d9;
+  background: #0d1117;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #8b949e;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal {
+  color: #ff7b72;
+}
+
+.hljs-string,
+.hljs-attr {
+  color: #a5d6ff;
+}
+
+.hljs-number,
+.hljs-built_in {
+  color: #79c0ff;
+}
+
+.hljs-title,
+.hljs-function_,
+.hljs-class_ {
+  color: #d2a8ff;
+}
+
+.hljs-variable,
+.hljs-name {
+  color: #ffa657;
+}
+
+/* Скроллбар для блоков кода */
+pre::-webkit-scrollbar {
+  height: 8px;
+}
+pre::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 4px;
+}

@@ -1,0 +1,49 @@
+---
+title: "Тёмная тема на Tailwind CSS без мигания"
+date: "2026-03-02"
+excerpt: "Как реализовать переключение светлой и тёмной темы с сохранением выбора и без FOUC."
+tags: ["css", "tailwind", "tutorial"]
+cover: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1200&q=80"
+---
+
+## Проблема мигания темы
+
+Если включать тёмную тему уже после загрузки React-приложения,
+пользователь на долю секунды увидит светлую тему, а затем — резкое
+переключение на тёмную. Это называется **FOUC** (flash of unstyled content).
+
+### Решение: инлайн-скрипт в `<head>`
+
+Самый надёжный способ — выполнить проверку `localStorage` **до** отрисовки
+React-дерева, вставив небольшой скрипт прямо в `<head>` layout'а:
+
+```html
+<script>
+  (function () {
+    var theme = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (theme === 'dark' || (!theme && prefersDark)) {
+      document.documentElement.classList.add('dark');
+    }
+  })();
+</script>
+```
+
+### Настройка Tailwind
+
+В `tailwind.config.ts` нужно включить стратегию `class`:
+
+```ts
+const config = {
+  darkMode: 'class',
+  // ...
+}
+```
+
+После этого достаточно добавлять/удалять класс `dark` на `<html>`,
+а все `dark:*`-варианты в классах заработают автоматически.
+
+### Итог
+
+Комбинация инлайн-скрипта и `darkMode: 'class'` даёт мгновенное и
+корректное переключение темы без мигания и лишних перерисовок.
